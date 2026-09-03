@@ -1,0 +1,15 @@
+# dsh-session-spend bundle patch: one browser plugin row over the web layer.
+#
+# Applied after the bundles listed before this one in the profile's
+# dsh.profile.bundles (the web surface bundle normally boots first). The
+# profile's own cordis.patch.yml and $DSH_HOME/cordis.patch.yml still layer on
+# top, so a user can override/disable this row by id without touching this
+# package.
+#
+# The row is a bare package name: dsh-session-spend declares `dsh.client`, so
+# the client-modules scan resolves the ./client export, serves
+# /plugins/session-spend/client.js, and composes it into window.__DSH_BOOT__.
+
+- insert:
+    - id: session-spend
+      name: dsh-session-spend

@@ -1,0 +1,3 @@
+# Normalize line endings on check-in; keep LF in the working tree across
+# platforms (Windows checkout included) so diffs stay stable.
+* text=auto eol=lf

@@ -1,0 +1,20 @@
+# Dependencies
+node_modules/
+
+# Build output — `lib/` is produced by `pnpm run build`; the profile link
+# serves lib/ artifacts, so clone + `pnpm install && pnpm run build` first
+# (see README install section).
+lib/
+*.tsbuildinfo
+
+# IDE
+.idea/
+.vscode/
+
+# Logs
+pnpm-debug.log*
+npm-debug.log*
+
+# OS
+Thumbs.db
+.DS_Store

@@ -1,0 +1,21 @@
+{
+  "extends": "./tsconfig.json",
+  "include": ["src/**/*.ts", "src/**/*.tsx", "types/**/*.d.ts"],
+  "compilerOptions": {
+    "paths": {
+      "@deepseek-ai/dsh-api-session-controller/client": ["./types/dsh-api-session-controller-client.d.ts"],
+      "@deepseek-ai/dsh-client-ui-conversation/client": ["./types/dsh-ui-conversation-client.d.ts"],
+      "@deepseek-ai/dsh-client-ui-renderer/client": ["./types/dsh-ui-renderer-client.d.ts"],
+      "@deepseek-ai/dsh-client-ui-session/client": ["./types/dsh-ui-session-client.d.ts"],
+      "@deepseek-ai/dsh-client-ui-settings/client": ["./types/dsh-ui-settings-client.d.ts"],
+      "@deepseek-ai/dsh-client-ui-settings-plugins/client": ["./types/dsh-ui-settings-plugins-client.d.ts"],
+      "@deepseek-ai/dsh-client-ui-slots": ["./types/dsh-ui-slots.d.ts"],
+      "@deepseek-ai/dsh-client-ui-primitives": ["./types/dsh-ui-primitives.d.ts"],
+      "@deepseek-ai/cordis": ["./types/cordis.d.ts"],
+      "@deepseek-ai/schemastery": ["./types/dsh-schemastery.d.ts"],
+      "react": ["D:/Projects/web/deepseek-harness/node_modules/.pnpm/@types+react@18.3.31/node_modules/@types/react/index.d.ts"],
+      "react/jsx-runtime": ["D:/Projects/web/deepseek-harness/node_modules/.pnpm/@types+react@18.3.31/node_modules/@types/react/jsx-runtime.d.ts"]
+    },
+    "types": []
+  }
+}

@@ -1,0 +1,136 @@
+import { test } from 'node:test'
+import assert from 'node:assert/strict'
+import { computeCost, formatCny, tokensToCny } from '../src/core/cost.ts'
+import { officialPriceTable } from '../src/core/price.ts'
+import { foldSamples } from '../src/core/fold.ts'
+
+// 2026-08-28 (Friday) UTC+8 wall-clock helpers: 06:00 → valley? No — 06:00 valley, 10:00 peak.
+const at = (day: number, hour: number): number => Date.UTC(2026, 7, day, hour - 8)
+
+test('per-record cost math: flash peak', () => {
+  // 1,000,000 uncached input + 1,000,000 output at flash peak.
+  const cost = tokensToCny({ inputTokens: 1_000_000, outputTokens: 1_000_000 }, officialPriceTable['deepseek-v4-flash'].peak)
+  assert.equal(cost, 3.0 + 9.0)
+})
+
+test('per-record cost math: cache read at hit rate, write at miss rate', () => {
+  const cost = tokensToCny(
+    { inputTokens: 1_000_000, outputTokens: 0, cacheReadTokens: 1_000_000, cacheWriteTokens: 1_000_000 },
+    officialPriceTable['deepseek-v4-flash'].valley,
+  )
+  // 2M at miss 1.5 + 1M at hit 0.05.
+  assert.equal(cost, 3.0 + 0.05)
+})
+
+test('regression: user real session numbers (billed input 63.3K, hit 77%, output 7.2K)', () => {
+  // Billed input 63,300 = cacheRead 48,741 + uncached/write 14,559 (77% hit).
+  const cacheRead = Math.round(63_300 * 0.77) // 48,741
+  const uncached = 63_300 - cacheRead
+  const records = foldSamples([{
+    turn: 0, step: 0,
+    time: at(28, 10), // Friday 10:00 → peak
+    model: 'deepseek-v4-flash',
+    usage: { inputTokens: uncached, outputTokens: 7_200, cacheReadTokens: cacheRead },
+  }])
+  const summary = computeCost(records, officialPriceTable)
+  // cacheRead 48,741 × 0.10/1M + uncached 14,559 × 3.0/1M + 7,200 × 9.0/1M
+  const expected = 48_741 * 0.10 / 1e6 + 14_559 * 3.0 / 1e6 + 7_200 * 9.0 / 1e6
+  assert.ok(Math.abs(summary.totalCny - expected) < 1e-9)
+  assert.equal(summary.peakCny, summary.totalCny)
+  assert.equal(summary.valleyCny, 0)
+  // Cache saving: cacheRead × (miss − hit) at peak = 48,741 × (3.0 − 0.10)/1M.
+  assert.ok(Math.abs(summary.cacheSavedCny - 48_741 * 2.9 / 1e6) < 1e-9)
+  assert.equal(summary.unknownModelIds.length, 0)
+  assert.equal(summary.recordCount, 1)
+  assert.equal(formatCny(summary.totalCny), '¥0.11')
+})
+
+test('same traffic at valley costs exactly half (official rule valley = peak × 0.5)', () => {
+  const peak = foldSamples([{
+    turn: 0, step: 0, time: at(28, 10), model: 'deepseek-v4-flash',
+    usage: { inputTokens: 60_000, outputTokens: 30_000, cacheReadTokens: 10_000 },
+  }])
+  const valley = foldSamples([{
+    turn: 0, step: 0, time: at(28, 12), model: 'deepseek-v4-flash',
+    usage: { inputTokens: 60_000, outputTokens: 30_000, cacheReadTokens: 10_000 },
+  }])
+  const peakSummary = computeCost(peak, officialPriceTable)
+  const valleySummary = computeCost(valley, officialPriceTable)
+  assert.ok(Math.abs(valleySummary.totalCny - peakSummary.totalCny / 2) < 1e-9)
+  assert.equal(valleySummary.peakCny, 0)
+})
+
+test('unknown model is flagged, never priced', () => {
+  const records = foldSamples([{
+    turn: 0, step: 0, time: at(28, 10), model: 'some-other-model',
+    usage: { inputTokens: 1000, outputTokens: 1000 },
+  }])
+  const summary = computeCost(records, officialPriceTable)
+  assert.equal(summary.totalCny, 0)
+  assert.deepEqual(summary.unknownModelIds, ['some-other-model'])
+  assert.equal(summary.recordCount, 0)
+})
+
+test('records without a model id are skipped as unknown too', () => {
+  const records = foldSamples([{ turn: 0, step: 0, time: at(28, 10), usage: { inputTokens: 1, outputTokens: 1 } }])
+  const summary = computeCost(records, officialPriceTable)
+  assert.equal(summary.totalCny, 0)
+  assert.equal(summary.unknownModelIds.length, 0)
+  assert.equal(summary.recordCount, 0)
+})
+
+test('mixed peak and valley split the totals', () => {
+  const records = foldSamples([
+    { turn: 0, step: 0, time: at(28, 10), model: 'deepseek-v4-flash', usage: { inputTokens: 1_000_000, outputTokens: 0 } },
+    { turn: 0, step: 1, time: at(28, 12), model: 'deepseek-v4-flash', usage: { inputTokens: 1_000_000, outputTokens: 0 } },
+  ])
+  const summary = computeCost(records, officialPriceTable)
+  assert.equal(summary.totalCny, 3.0 + 1.5)
+  assert.equal(summary.peakCny, 3.0)
+  assert.equal(summary.valleyCny, 1.5)
+})
+
+test('formatCny: thousands separators and fixed two decimals', () => {
+  assert.equal(formatCny(0.11), '¥0.11')
+  assert.equal(formatCny(1234.5), '¥1,234.50')
+  assert.equal(formatCny(0), '¥0.00')
+})
+
+test('custom price table overrides official defaults', () => {
+  const custom = {
+    'deepseek-v4-flash': {
+      peak: { cacheHit: 1, cacheMiss: 2, output: 3 },
+      valley: { cacheHit: 0.5, cacheMiss: 1, output: 1.5 },
+    },
+  }
+  const records = foldSamples([{
+    turn: 0, step: 0, time: at(28, 10), model: 'deepseek-v4-flash',
+    usage: { inputTokens: 1_000_000, outputTokens: 0 },
+  }])
+  assert.equal(computeCost(records, custom).totalCny, 2)
+})
+
+test('model switch mid-session: each record priced by its own model, with per-model share', () => {
+  const records = foldSamples([
+    { turn: 0, step: 0, time: at(28, 10), model: 'deepseek-v4-flash', usage: { inputTokens: 1_000_000, outputTokens: 0 } },
+    { turn: 0, step: 1, time: at(28, 10), model: 'deepseek-v4-pro', usage: { inputTokens: 1_000_000, outputTokens: 0 } },
+  ])
+  const summary = computeCost(records, officialPriceTable)
+  // flash 1M input at miss 3.0 + pro 1M input at miss 9.0 — never a shared rate.
+  assert.equal(summary.totalCny, 3.0 + 9.0)
+  assert.equal(summary.recordCount, 2)
+  assert.deepEqual(summary.byModel, [
+    { model: 'deepseek-v4-pro', totalCny: 9.0, recordCount: 1 },
+    { model: 'deepseek-v4-flash', totalCny: 3.0, recordCount: 1 },
+  ])
+})
+
+test('per-model share folds repeated records of the same model', () => {
+  const records = foldSamples([
+    { turn: 0, step: 0, time: at(28, 10), model: 'deepseek-v4-flash', usage: { inputTokens: 1_000_000, outputTokens: 0 } },
+    { turn: 0, step: 1, time: at(28, 10), model: 'deepseek-v4-flash', usage: { inputTokens: 1_000_000, outputTokens: 0 } },
+  ])
+  const summary = computeCost(records, officialPriceTable)
+  assert.equal(summary.byModel.length, 1)
+  assert.deepEqual(summary.byModel[0], { model: 'deepseek-v4-flash', totalCny: 6.0, recordCount: 2 })
+})
