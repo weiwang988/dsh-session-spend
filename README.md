@@ -1,6 +1,6 @@
 # dsh-session-spend
 
-DSH（DeepSeek Harness）Web 客户端插件：实时显示**当前会话花费**（¥），按官方**峰谷计价**逐笔选档，悬停查看节省分解。零 host 改动，纯客户端。**兼容 DSH 0.1.2 线**（浏览器端契约 = `@deepseek-ai/dsh-client-*` 0.1.2-alpha.5，与当前 host 主线一致；rc.1 无契约差异）；host 半对会话持久化做**双线适配**——`open(id,'read') → handle.read()` 接缝（master 线新增、尚未随已发布版本发出）与已发布 0.1.2 线的 `readRaw/supportsRawArtifacts` 回退，两条线的完整会话账本同价同规则；两者都缺失时静默降级为本地尾窗读数，详见「兼容性注记」。
+DSH（DeepSeek Harness）Web 客户端插件：实时显示**当前会话花费**（¥），按官方**峰谷计价**逐笔选档，悬停查看节省分解。零 host 改动，纯客户端。**兼容 DSH 0.1.2 线**（浏览器端契约 = `@deepseek-ai/dsh-client-*` 0.1.2-rc.1，与当前 npm 发布线及 host master 主线一致）；host 半对会话持久化做**双线适配**——`open(id,'read') → handle.read()` 接缝（master 线新增、尚未随已发布版本发出）与已发布 0.1.2 线的 `readRaw/supportsRawArtifacts` 回退，两条线的完整会话账本同价同规则；两者都缺失时静默降级为本地尾窗读数，详见「兼容性注记」。
 
 ## 功能
 
@@ -86,18 +86,18 @@ conversation.composer.dock 条目 ← 读快照 session.views.get('cost')
 - 分页/重放：引擎 `replaceWindow` 重建全部节点，ViewBuilder `replace()` 全量重算——**不会重复计费**。
 - 实时：每条 usage 事件结算即刷新，与统计行节奏一致；无流式粗估。
 
-## 兼容性注记（适配 DSH 0.1.2 线：已发布 alpha.5/rc.1 + master 主线）
+## 兼容性注记（适配 DSH 0.1.2 线：已发布 rc.1 + master 主线）
 
 2026-08-30 之后官方发布线与 master 主线出现了**两条并存**的持久化面，本包两条都吃：
 
 | 线 | 持久化面 | 本包 host 半 |
 |---|---|---|
-| 已发布 `0.1.2-alpha.2 … alpha.5 / rc.1` | `sessionPersistence.supportsRawArtifacts` + `readRaw(id)` → **原始 JSONL 文本**（首行是 `{type:'session'}` 格式头；delta chunk 可能被合入 `text-chunks` 等行） | `readRaw` 回退：`parseRawLogLines` 逐行解析（跳过格式头与 packed 行），再走同价同规则的 last-wins 折叠 |
-| master 主线（≥ alpha.5 之后；下一个发布将带上） | `open(id, 'read')` → `handle.read()` → **解码后的 `SessionEvent[]`**（packed 行已展开、撕尾帧不返回） | handle 接缝，首选路径 |
+| 已发布 `0.1.2-alpha.2 … alpha.5 / rc.1`（**rc.1 = 当前 npm `next` 发布物**） | `sessionPersistence.supportsRawArtifacts` + `readRaw(id)` → **原始 JSONL 文本**（首行是 `{type:'session'}` 格式头；delta chunk 可能被合入 `text-chunks` 等行） | `readRaw` 回退：`parseRawLogLines` 逐行解析（跳过格式头与 packed 行），再走同价同规则的 last-wins 折叠 |
+| master 主线（`release/dsh-0.1.2-rc.1-version-to-master` 已合入，**当前 checkout 的版本号已是 rc.1**；下一个发布将带上 seam） | `open(id, 'read')` → `handle.read()` → **解码后的 `SessionEvent[]`**（packed 行已展开、撕尾帧不返回） | handle 接缝，首选路径 |
 
 **运行时探查而非版本判定**：每次汇总请求先试 `open`（seam 线），缺 `open` 再试 `supportsRawArtifacts`/`readRaw`（发布线）——同一个 bundle 在两条线上都给出完整会话账本，浏览器端无需改动。两条线都不可用（旧版 host 或后端不支持原始导出）时静默降级为本地尾窗折叠，**不报错但金额偏小**。注意：handle 接缝目前**只存在于 master 主线**，`0.1.2-alpha.4`、`0.1.2-alpha.5`、`0.1.2-rc.1` 的**实际发布内容**都还是 `readRaw` 面——本包按实际发布物判断，而非按版本号时间线。
 
-浏览器端契约在 alpha.2 → alpha.5 → rc.1 之间无破坏性变化（`conversation.composer.dock` 的 owner 份额在 alpha.2→alpha.5 间被移走，本包未使用该份额，无需改动）；本包 devDeps 钉在 `0.1.2-alpha.5`（与 master 主线的客户端契约一致）。
+浏览器端契约在 alpha.2 → alpha.5 → rc.1 → 当前 master 之间无破坏性变化（`conversation.composer.dock` 的 owner 份额在 alpha.2→alpha.5 间被移走，本包未使用该份额，无需改动）；本包 devDeps 钉在 `0.1.2-rc.1`（当前 npm 发布线与 master 的客户端契约一致）。
 
 ## 与现有同类插件的差异
 

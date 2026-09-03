@@ -34,8 +34,8 @@
 ```powershell
 cd D:\Projects\dsh\dsh-session-spend
 
-# 1. 安装开发依赖（@deepseek-ai/dsh-client-* 钉在 0.1.2-alpha.5，与当前 host 主线
-#    契约一致；含契约 pull 包 dsh-api-session-controller、dsh-client-ui-session、
+# 1. 安装开发依赖（@deepseek-ai/dsh-client-* 钉在 0.1.2-rc.1，与当前 npm 发布线
+#    及 host master 主线契约一致；含契约 pull 包 dsh-api-session-controller、dsh-client-ui-session、
 #    dsh-client-ui-settings、dsh-client-ui-settings-plugins、dsh-client-ui-renderer、
 #    dsh-client-store——它们声明浏览器端 Context/slot/locale 的 merge，真实类型
 #    检查必须安装；host 半对 sessionPersistence/webServer/credentials 采用结构
@@ -136,7 +136,7 @@ dsh plugin --profile web add github:you/dsh-session-spend#<commit-sha>
 
 | 症状 | 原因 | 处理 |
 |---|---|---|
-| `ERR_PNPM_FETCH_404 ... @deepseek-ai/dsh-compact` | pnpm 把 peer `"*"` 解析到**远古版本**（如 `@deepseek-ai/dsh-client-runtime@0.0.1-rc.1`），旧清单引用了改名前的未发布包名 `dsh-compact`（对照：官方包名是 `dsh-compaction`，两源均 404 确认从未发布） | ① `Remove-Item -Recurse -Force node_modules, pnpm-lock.yaml` ② 重装（本包按官方 0.1.2 模式**只声明 cordis 一个 peer**，已无 peer 级联；所有 `@deepseek-ai/dsh-client-*` devDeps 钉在精确 `0.1.2-alpha.5`）③ 若镜像缺包：`pnpm config set @deepseek-ai:registry https://registry.npmjs.org/` 后重装 |
+| `ERR_PNPM_FETCH_404 ... @deepseek-ai/dsh-compact` | pnpm 把 peer `"*"` 解析到**远古版本**（如 `@deepseek-ai/dsh-client-runtime@0.0.1-rc.1`），旧清单引用了改名前的未发布包名 `dsh-compact`（对照：官方包名是 `dsh-compaction`，两源均 404 确认从未发布） | ① `Remove-Item -Recurse -Force node_modules, pnpm-lock.yaml` ② 重装（本包按官方 0.1.2 模式**只声明 cordis 一个 peer**，已无 peer 级联；所有 `@deepseek-ai/dsh-client-*` devDeps 钉在精确 `0.1.2-rc.1`）③ 若镜像缺包：`pnpm config set @deepseek-ai:registry https://registry.npmjs.org/` 后重装 |
 | `client-modules: ...exports no "./client" bundle` | 没 build 就 add（或 git 安装没跑 prepare） | `pnpm run build` 后重启 `dsh web` |
 | `dsh plugin add` git 安装被拒 | pnpm ≥10 默认不执行 git 依赖的 prepare | profile `pnpm-workspace.yaml` 加 `allowBuilds`；或改 tarball/npm |
 | 页面无读数、console 报 inject 服务缺 | 缺 `web-app` bundle（profile 没 web 模板） | 确认 `dsh --profile web --dump-config` 中有 web 层；必要时重加 `@deepseek-ai/dsh-web-app` |
