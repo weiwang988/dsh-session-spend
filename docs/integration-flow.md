@@ -124,7 +124,8 @@ pnpm pack                                    # 产出 dsh-session-spend-0.1.0.tg
 # 用户侧：dsh plugin --profile web add ./dsh-session-spend-0.1.0.tgz
 
 # C. git 安装（需要允许构建）
-dsh plugin --profile web add github:you/dsh-session-spend#<commit-sha>
+#    源码：https://github.com/weiwang988/dsh-session-spend（建议 pin 发布标签）
+dsh plugin --profile web add github:weiwang988/dsh-session-spend#v0.1.0
 # 首次失败时按提示在 profile 的 pnpm-workspace.yaml 写入 allowBuilds: dsh-session-spend: true 后重试
 ```
 

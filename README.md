@@ -1,5 +1,7 @@
 # dsh-session-spend
 
+> 源码：[github.com/weiwang988/dsh-session-spend](https://github.com/weiwang988/dsh-session-spend) · 兼容 DSH `0.1.2-rc.1` 发布线及 master 主线（见[兼容性注记](#兼容性注记适配-dsh-012-线已发布-rc1--master-主线)）
+
 DSH（DeepSeek Harness）Web 客户端插件：实时显示**当前会话花费**（¥），按官方**峰谷计价**逐笔选档，悬停查看节省分解。零 host 改动，纯客户端。**兼容 DSH 0.1.2 线**（浏览器端契约 = `@deepseek-ai/dsh-client-*` 0.1.2-rc.1，与当前 npm 发布线及 host master 主线一致）；host 半对会话持久化做**双线适配**——`open(id,'read') → handle.read()` 接缝（master 线新增、尚未随已发布版本发出）与已发布 0.1.2 线的 `readRaw/supportsRawArtifacts` 回退，两条线的完整会话账本同价同规则；两者都缺失时静默降级为本地尾窗读数，详见「兼容性注记」。
 
 ## 功能
@@ -49,11 +51,14 @@ dsh --profile web
 ```bash
 dsh plugin --profile web add dsh-session-spend        # npm（发布时执行 pnpm publish，自动先构建）
 dsh plugin --profile web add ./dsh-session-spend-0.1.0.tgz   # pnpm pack 产物
-dsh plugin --profile web add github:you/dsh-session-spend    # git 安装：包内有 prepare 会自动构建，
-                                                            # 但需按提示在 profile 的 pnpm-workspace.yaml
-                                                            # 允许该包构建（allowBuilds），且建议 pin commit
+dsh plugin --profile web add github:weiwang988/dsh-session-spend    # git 安装：包内有 prepare 会自动构建，
+dsh plugin --profile web add github:weiwang988/dsh-session-spend#v0.1.0   # 或 pin 发布标签
+                                                            # 需按提示在 profile 的 pnpm-workspace.yaml
+                                                            # 允许该包构建（allowBuilds）
 dsh plugin --profile web remove dsh-session-spend     # 卸载
 ```
+
+源码仓库：[https://github.com/weiwang988/dsh-session-spend](https://github.com/weiwang988/dsh-session-spend)（`main` + 发布标签 `v0.1.0`）。
 
 **生效机制**：patch 行 `{id: session-spend, name: dsh-session-spend}` 进入 Web 组合；[`@deepseek-ai/dsh-client-modules`](https://github.com/deepseek-ai/deepseek-harness/tree/main/packages/client/modules) 扫描组合行，发现本包 `dsh.client` 清单 → 解析 `exports["./client"]` → 生成 `window.__DSH_BOOT__` 清单并 serve `/plugins/session-spend/client.js` → 浏览器端 `apply` 注册定义/视图/dock 条目。**无需 fork DSH、无需改任何 bundle 源码。**
 
