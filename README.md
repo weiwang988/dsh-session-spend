@@ -46,17 +46,18 @@ dsh --profile web --dump-config      # 应出现 "# == dsh-session-spend" 层
 dsh --profile web
 ```
 
-其它来源同样支持（推荐发布 npm 或打 tarball，省去构建许可）：
+其它来源同样支持（本包**不发布 npm**，推荐 GitHub git 安装或 tarball）：
 
 ```bash
-dsh plugin --profile web add dsh-session-spend        # npm（发布时执行 pnpm publish，自动先构建）
-dsh plugin --profile web add ./dsh-session-spend-0.1.0.tgz   # pnpm pack 产物
-dsh plugin --profile web add github:weiwang988/dsh-session-spend    # git 安装：包内有 prepare 会自动构建，
-dsh plugin --profile web add github:weiwang988/dsh-session-spend#v0.1.0   # 或 pin 发布标签
+dsh plugin --profile web add github:weiwang988/dsh-session-spend#v0.1.0   # git 安装（推荐，pin 发布标签）
+                                                            # 包内有 prepare 会自动构建，
                                                             # 需按提示在 profile 的 pnpm-workspace.yaml
                                                             # 允许该包构建（allowBuilds）
+dsh plugin --profile web add ./dsh-session-spend-0.1.0.tgz   # pnpm pack 产物（免构建许可）
 dsh plugin --profile web remove dsh-session-spend     # 卸载
 ```
+
+> 若未来要发 npm：`pnpm publish` 的 prepare 构建已配置好，发布后用户侧 `dsh plugin --profile web add dsh-session-spend`。
 
 源码仓库：[https://github.com/weiwang988/dsh-session-spend](https://github.com/weiwang988/dsh-session-spend)（`main` + 发布标签 `v0.1.0`）。
 

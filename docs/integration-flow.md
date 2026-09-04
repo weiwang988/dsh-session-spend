@@ -112,21 +112,21 @@ dsh web        # = dsh --profile web；默认 http://127.0.0.1:3080
 
 注意：`dsh web` 一次启动后，新增插件行要求重启服务端才能进入 `__DSH_BOOT__`；纯 bundle 内容变更只需刷新。
 
-## 阶段 6 · 分发（让别人也能装）
+## 阶段 6 · 分发（GitHub 为主，不发布 npm）
 
 ```powershell
-# A. npm 发布（prepare 自动构建，用户在任意机器）—— 推荐
-npm publish                                  # 或 pnpm publish
-# 用户侧：dsh plugin --profile web add dsh-session-spend
+# A. GitHub git 安装（推荐；pin 发布标签 v0.1.0）
+#    源码：https://github.com/weiwang988/dsh-session-spend
+dsh plugin --profile web add github:weiwang988/dsh-session-spend#v0.1.0
+# 首次失败时按提示在 profile 的 pnpm-workspace.yaml 写入 allowBuilds: dsh-session-spend: true 后重试
 
 # B. tarball 分发（免构建许可）
 pnpm pack                                    # 产出 dsh-session-spend-0.1.0.tgz
 # 用户侧：dsh plugin --profile web add ./dsh-session-spend-0.1.0.tgz
 
-# C. git 安装（需要允许构建）
-#    源码：https://github.com/weiwang988/dsh-session-spend（建议 pin 发布标签）
-dsh plugin --profile web add github:weiwang988/dsh-session-spend#v0.1.0
-# 首次失败时按提示在 profile 的 pnpm-workspace.yaml 写入 allowBuilds: dsh-session-spend: true 后重试
+# C. （备选）npm 发布——本包当前不发布；prepare 构建已就绪，如启用：
+npm publish                                  # 或 pnpm publish
+# 用户侧：dsh plugin --profile web add dsh-session-spend
 ```
 
 卸载：`dsh plugin --profile web remove dsh-session-spend`。
@@ -153,4 +153,4 @@ dsh plugin --profile web add github:weiwang988/dsh-session-spend#v0.1.0
 2. `dsh plugin --profile web add .` 后 `--dump-config` 见层；
 3. GUI 实机对照（阶段 4 清单 1-6）；
 4. `pnpm pack` + README 安装段完整；
-5. 发布：npm publish 或 GitHub（pin commit）。
+5. 发布：GitHub（打 tag 后 `git push origin main v0.1.0`；git 安装 pin 标签）。
