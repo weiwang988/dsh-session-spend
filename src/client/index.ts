@@ -1,6 +1,6 @@
 /**
  * Browser plugin: live session-cost readout for the conversation composer
- * band (0.1.2 line). Modes:
+ * band (0.1.3 line / format v2 vocabulary). Modes:
  *  - the dock entry renders the HOST summary (complete session ledger + today
  *    + balance) — the browser never pages history, so the client window is
  *    never expanded and session re-entry costs nothing extra;

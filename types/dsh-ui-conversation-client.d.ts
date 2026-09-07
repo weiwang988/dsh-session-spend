@@ -2,7 +2,7 @@
  * Offline type mirror: the Conversation contract (Definition / snapshot /
  * view builder) plus the merges this plugin consumes. Mirrors
  * packages/client/ui-conversation/src/client/contract/conversation.ts and
- * contract/snapshot.ts at the 0.1.2-alpha.5 line (the current host line).
+ * contract/snapshot.ts at the 0.1.3-alpha.1 line (the current host line).
  *
  * Used ONLY by tsconfig.offline.json (no network installs in the dev
  * sandbox). The production tsconfig.json has no paths: real published
@@ -89,6 +89,9 @@ export interface ConversationContextReader {
   previous<State>(kind: string): ConversationPreviousContext<State> | undefined
 }
 
+/** Requested cadence; `animation-frame` materializes after three browser animation frames. */
+export type ConversationPublication = 'none' | 'animation-frame' | 'immediate'
+
 /** One independently registered business Event-to-Node state machine. */
 export interface ConversationNodeDefinition<State = unknown> {
   readonly kind: string
@@ -103,6 +106,7 @@ export interface ConversationNodeDefinition<State = unknown> {
     context: ConversationNodeContext<State> & { readonly state: State },
     match: ConversationMatch,
   ): State
+  publication?(match: ConversationMatch): ConversationPublication
   buildViewNode?(context: ConversationNodeContext<State>): ConversationViewNode | null
 }
 
