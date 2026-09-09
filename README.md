@@ -1,8 +1,8 @@
 # dsh-session-spend
 
-> 源码：[github.com/weiwang988/dsh-session-spend](https://github.com/weiwang988/dsh-session-spend) · 兼容 DSH **`0.1.3` 线**（`dsh-v0.1.3-alpha.1`，session format v2 词表；见[兼容性注记](#兼容性注记适配-dsh-013-alpha1-线)）
+> 源码：[github.com/weiwang988/dsh-session-spend](https://github.com/weiwang988/dsh-session-spend) · 兼容 DSH **`0.1.5` 线**（`dsh-v0.1.5-alpha.1`，session format v3 词表；见[兼容性注记](#兼容性注记适配-dsh-015-alpha1-线)）
 
-DSH（DeepSeek Harness）Web 客户端插件：实时显示**当前会话花费**（¥），按官方**峰谷计价**逐笔选档，悬停查看节省分解。零 host 改动，纯客户端。**适配 DSH 0.1.3 线**（浏览器端契约 = `@deepseek-ai/dsh-client-*` 0.1.3-alpha.1 线，session format v2：`assistant/attempt` + 内嵌 stream、transient `assistant/live-chunk`、`llm/retry-started` 槽位语义）；host 半经 `sessionPersistence.open(id,'read') → handle.read()` 直接读取**解码后的 v2 逻辑事件流**（格式迁移由 DSH 的 v0→v1→v2 链完成），完整会话账本同价同规则。
+DSH（DeepSeek Harness）Web 客户端插件：实时显示**当前会话花费**（¥），按官方**峰谷计价**逐笔选档，悬停查看节省分解。零 host 改动，纯客户端。**适配 DSH 0.1.5 线**（浏览器端契约 = `@deepseek-ai/dsh-client-*` 0.1.5-alpha.1 线，session format v3：`assistant/attempt` + 内嵌 stream、transient `assistant/live-chunk`、`llm/retry-started` 槽位语义）；host 半经 `sessionPersistence.open(id,'read') → handle.read()`（返回 `{eventState, events}`）直接读取**解码后的逻辑事件流**（格式迁移由 DSH 的 v0→v1→v2→v3 链完成），完整会话账本同价同规则。
 
 ## 功能
 
@@ -95,15 +95,18 @@ conversation.composer.dock 条目 ← 读快照 session.views.get('cost')
 - 分页/重放：引擎 `replaceWindow` 重建全部节点（Context 从 matches 重放，append-only 状态确定），ViewBuilder `replace()` 全量重算——**不会重复计费**。
 - 实时：live-chunk usage 帧 `animation-frame` 节奏刷新（引擎结算时 transient 被退休、Context 以其实际 matches 重放）；与统计行节奏一致，无流式粗估。
 
-## 兼容性注记（适配 DSH 0.1.3-alpha.1 线）
+## 兼容性注记（适配 DSH 0.1.5-alpha.1 线）
 
-适配对象为 **format v2** 事件词表（`dsh-v0.1.3-alpha.1`，当前 master），要点：
+适配对象为 **format v3** 事件词表（`dsh-v0.1.5-alpha.1`，当前 master；v3 自 0.1.3-alpha.2 起生效），要点：
 
-- **持久化面**：`sessionPersistence.open(id, 'read')` → `handle.read(offset?, length?, options?)` 返回解码后的 `SessionEvent[]`（v2 词表，内嵌 stream 原样保留；**不含** 0.1.2 线的 `readRaw/supportsRawArtifacts` 回退——旧线请用 tag `v0.1.0` 的包）。
+- **持久化面**：`sessionPersistence.open(id, 'read')` → `handle.read(offset?, length?, options?)` 解析为 **`SessionHandleReadResult`（`{ eventState, events }`，0.1.5 线起）**——本包取 `.events`（注意 0.1.3 线旧形态是裸 `SessionEvent[]`，两者本包都兼容：旧线返回数组时 `.events` 为 undefined，请以 0.1.5 为准；0.1.2 线的 `readRaw/supportsRawArtifacts` 回退已移除——旧线请用 tag `v0.1.0` 的包）。
 - **词表变化**（相对 0.1.2 线）：持久化词表里再无 `assistant/chunk`，新增 **`assistant/attempt`**（失败的模型尝试也留账）；`assistant/message` 内嵌完整紧凑模型流 `stream`（`usage` 仍在）；客户端事件的 `SessionEventLike` 新增 **transient `assistant/live-chunk`**（`{attemptId, turn, step, chunk}`，结算后由 `settle-assistant` 退休替换）；`llm/retry` / `llm/retry-started` 为持久化重试记录。
+- **v3 增量**（相对 0.1.3-alpha.1，均与计费无关）：system prompt 上浮为 surface 节点（新事件 `system/message`，`request/header` 不再携带 `system`，但 `config.model` 不变）；`tool/code-dispatch*` → **`tool/ptc-dispatch*`**；新增 `feedback/message-put/delete`；`sourceEventSeqs` 从 wire 类型移除；token-meter 的 usage 提取重构为 `lastAssistantStreamChunk`（**语义不变**：`data.usage` 优先，否则 stream 最后一条 usage chunk）。
 - **计费口径**：usage = `data.usage` ?? 内嵌 stream 中**最后一条** usage chunk（plain `{type:'chunk'}` 记录；packed text/reasoning/tool-call 行不含 usage）；`llm/retry-started(turn,step)` 开**新槽位**——重试后的下载样本是**追加**不是替换（失败请求与重试请求都真实计费）。
 - **模型归属**：`assistant/attempt` 无 `model` 字段；归因最近先行的 `request/header`（`header.config.model`，DSH 只在配置变化时重新记录，因此"最近先行头"就是本次请求的模型）；取不到才标「价格未知」。
-- 浏览器端契约（`conversation.composer.dock`、NodeDefinition/ViewDefinition/register、locale、settingsScope）在 0.1.2-rc.1 → 0.1.3-alpha.1 之间**无破坏性变化**；事件词表是唯一破坏点。本包 src 对事件做结构化访问（`CostEventLike`），因此在 0.1.2 发布类型的笔形下也可 typecheck；devDeps 在 0.1.3-alpha.1 发布 npm 后应升到该版本。
+- 浏览器端契约（`conversation.composer.dock`、NodeDefinition/ViewDefinition/register、locale、settingsScope）在 0.1.2-rc.1 → 0.1.5-alpha.1 之间**无破坏性变化**；事件词表与持久化返回值是唯一破坏点。本包 src 对事件做结构化访问（`CostEventLike`），因此在 0.1.2 发布类型的笔形下也可 typecheck；devDeps 在 0.1.5-alpha.1 发布 npm 后应升到该版本。
+
+> 注：0.1.5 线把聊天区的「统计条」换成了两个图标 pill + 点击打开的统计对话框——本包挂在 `conversation.composer.dock` 槽位，与统计条布局相互独立；如果官方新的统计对话框也提供同源数据入口，可作为后续对齐点。
 
 ## 与现有同类插件的差异
 
@@ -116,7 +119,7 @@ RoxsLee/dsh-cost-plugin（峰谷按时间戳+余额）、Lzh3070/dsh-session-cos
 
 ## Known Limitations and Deferred Work
 
-- **读数是"全量"且零窗口成本**：会话总账由 **host 端从持久化日志折叠**（0.1.3 线 `sessionPersistence.open(id, 'read')` → `handle.read()` 取**解码后的 v2 逻辑事件流**——v0/v1 旧文件由 DSH 格式链自动迁移，未知词表 fail-closed），客户端**永不翻页**——客户端窗口从不膨胀，会话二次进入零额外成本（补齐了纯客户端窗口方案的短板）。每次轮次结算 host 重读一次该会话日志（大日志的 host 侧成本，后续可加 revision 缓存）。
+- **读数是"全量"且零窗口成本**：会话总账由 **host 端从持久化日志折叠**（0.1.5 线 `sessionPersistence.open(id, 'read')` → `handle.read()` 取**解码后的逻辑事件流**（`{eventState, events}`；v0/v1/v2 旧文件由 DSH 格式链自动迁移到 v3，未知词表 fail-closed），客户端**永不翻页**——客户端窗口从不膨胀，会话二次进入零额外成本（补齐了纯客户端窗口方案的短板）。每次轮次结算 host 重读一次该会话日志（大日志的 host 侧成本，后续可加 revision 缓存）。注意 0.1.5 线的 `eventState` 指示事件值所有权——本包只读取折叠，不保留引用，无需特殊处理。
 - **今日(DSH)**：host 端跨所有会话按北京时间今日边界汇总（同口径=主对话调用）；与官方控制台差异（标题/压缩等隐性调用）依旧体现在"今日"之外。
 - **「当前高峰/低谷」徽标按组件渲染时刻计算**——会话空闲时不会自动翻牌（下一次事件驱动重渲染时更新）。后续可改为定时刷新。
 - **不含压缩总结/标题生成/子代理**——这些调用在官方口径下同样计费；未来以配置开关引入（`includeCompaction` / `includeTitleGen` / `includeSubagents`）。

@@ -1,8 +1,8 @@
 /**
- * Event fold over provider usage samples, 0.1.3 (format v2) vocabulary (pure).
+ * Event fold over provider usage samples, 0.1.5 (format v3) vocabulary (pure).
  *
  * Mirrors the official token-meter rule
- * (packages/llm/token-meter/src/usage-projection.ts on the 0.1.3 line):
+ * (packages/llm/token-meter/src/usage-projection.ts on the 0.1.5 line):
  *  - a durable Assistant settlement — `assistant/attempt` or
  *    `assistant/message` — contributes the LAST usage sample embedded in its
  *    stream (`data.usage` wins when present, else the stream's final

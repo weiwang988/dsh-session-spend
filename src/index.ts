@@ -9,7 +9,7 @@
  *   - `session`  — the complete session ledger: priced with the same official
  *     price table + peak/valley window as the client (main-conversation
  *     records, per (turn, step, generation) last-wins, retry adds), folded
- *     from the persistence read handle's v2 logical event stream;
+ *     from the persistence read handle's logical event stream;
  *   - `today`    — every session's main-conversation cost since Beijing
  *     midnight (the "今日(DSH)" figure);
  *   - `balance`  — official GET /user/balance via DSH credentials.
@@ -45,12 +45,12 @@ type LogEvent = LogEventLike
 /**
  * The persistence service (duck-typed, zero runtime dependency).
  *
- * 0.1.3 line (format v2): `open(id, 'read')` → `handle.read()` returns the
+ * 0.1.5 line (format v3): `open(id, 'read')` → `handle.read()` returns the
  * decoded logical event stream in current-format vocabulary — the host
- * already migrated released v0/v1 artifacts through the format chain
- * (session-format-v0-to-v1 → v1-to-v2), assistant streams stay embedded in
- * `assistant/attempt` / `assistant/message`, and a torn physical tail is
- * never returned. Unknown vocabulary fails the read fail-closed.
+ * already migrated released v0/v1/v2 artifacts through the format chain
+ * (session-format-v0-to-v1 → v1-to-v2 → v2-to-v3), assistant streams stay
+ * embedded in `assistant/attempt` / `assistant/message`, and a torn physical
+ * tail is never returned. Unknown vocabulary fails the read fail-closed.
  */
 interface PersistenceSeam {
   open(id: string, access: 'read', options?: { signal?: AbortSignal }): Promise<SessionReadHandle>
@@ -59,13 +59,15 @@ interface PersistenceSeam {
 interface SessionReadHandle {
   /**
    * Read a slice of the valid contiguous logical log: `offset` (default 0),
-   * `length` (default the rest), optional cancellation.
+   * `length` (default the rest), optional cancellation. The 0.1.5 line
+   * resolves to `SessionHandleReadResult` (`{ eventState, events }`); this
+   * duck type keeps only the caller-owned outer slice.
    */
   read(
     offset?: number,
     length?: number,
     options?: { signal?: AbortSignal },
-  ): Promise<readonly LogEvent[]>
+  ): Promise<{ readonly events: readonly LogEventLike[] }>
   close(): Promise<void>
 }
 
@@ -73,16 +75,16 @@ interface SessionReadHandle {
 async function readSessionLog(
   persistence: PersistenceSeam,
   sessionId: string,
-): Promise<readonly LogEvent[]> {
+): Promise<readonly LogEventLike[]> {
   const handle = await persistence.open(sessionId, 'read')
   try {
-    return await handle.read()
+    return (await handle.read()).events
   } finally {
     await handle.close()
   }
 }
 
-/** Fold one session's v2 logical events into priced records (pure fold helpers). */
+/** Fold one session's logical events into priced records (pure fold helpers). */
 function foldEvents(events: readonly LogEventLike[]): StepRecord[] {
   return foldCostItems(logItemsOf(events))
 }

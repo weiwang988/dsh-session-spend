@@ -1,5 +1,5 @@
 /**
- * Session-cost Node Definition, 0.1.3 (format v2) conversations contract.
+ * Session-cost Node Definition, 0.1.5 (format v3) conversations contract.
  *
  * One Context per (turn, step), started by the durable `step/start` opening the
  * step, then updated by every usage-carrying event of that step:

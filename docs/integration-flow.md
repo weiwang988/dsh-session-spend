@@ -34,9 +34,9 @@
 ```powershell
 cd D:\Projects\dsh\dsh-session-spend
 
-# 1. 安装开发依赖（@deepseek-ai/dsh-client-* 当前钉在 0.1.2-rc.1 —— 0.1.3-alpha.1
+# 1. 安装开发依赖（@deepseek-ai/dsh-client-* 当前钉在 0.1.2-rc.1 —— 0.1.5-alpha.1
 #    尚未发布 npm；本包对事件做结构化访问（CostEventLike），先发布与后发布版本的
-#    笔形都可 typecheck。0.1.3 上线 npm 后把 devDeps 升到 0.1.3 线。
+#    笔形都可 typecheck。0.1.5 上线 npm 后把 devDeps 升到 0.1.5 线。
 #    含契约 pull 包 dsh-api-session-controller、dsh-client-ui-session、
 #    dsh-client-ui-settings、dsh-client-ui-settings-plugins、dsh-client-ui-renderer、
 #    dsh-client-store——它们声明浏览器端 Context/slot/locale 的 merge，真实类型
@@ -145,7 +145,7 @@ npm publish                                  # 或 pnpm publish
 | 页面无读数、console 报 inject 服务缺 | 缺 `web-app` bundle（profile 没 web 模板） | 确认 `dsh --profile web --dump-config` 中有 web 层；必要时重加 `@deepseek-ai/dsh-web-app` |
 | 有事件但金额不涨 | 用了未配置价目的模型 | 显示「价格未知」属预期；在价目表补该模型或换官方模型 |
 | 徽标与本地直觉不符 | 官方峰谷按**北京时间**判定（本插件硬编码 Asia/Shanghai） | 属正确行为；本地时区不用改 |
-| 升级 DSH 后读数只剩尾窗小额、无「今日」 | host 持久化面不是 0.1.3 线的 `open/read` 接缝（旧版 host，如 0.1.2 线的 `readRaw` 面） | 本包自 v0.2.0 起**只适配 0.1.3-alpha.1 线**：升级 DSH 到 0.1.3；旧 0.1.2 线请用发布标签 `v0.1.0` |
+| 升级 DSH 后读数只剩尾窗小额、无「今日」 | host 持久化面不是 0.1.5 线的 `open/read` 接缝（旧版 host，如 0.1.2 线的 `readRaw` 面） | 本包自 v0.2.0 起**只适配 0.1.3+ 线**（v0.2.1 起对 0.1.5 的 `SessionHandleReadResult` 解包）：升级 DSH 到 0.1.5；旧 0.1.2 线请用发布标签 `v0.1.0` |
 | peer 版本不匹配警告 | profile 侧重置了 `@deepseek-ai/dsh-client-*` 新版本 | 保持本包 peer 为 `*`；以 `dsh` 自带的运行时为准，异常时 `dsh plugin --profile web update` |
 | 装了但统计行位置异样 | dock 多条目布局 | 已知项；后续版本如需可换展示位 |
 
