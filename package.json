@@ -1,6 +1,6 @@
 {
   "name": "dsh-session-spend",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "DSH client plugin: live session cost readout (¥) with official DeepSeek peak/valley pricing and savings breakdown (targets DSH 0.1.5 / session format v3)",
   "type": "module",
   "main": "lib/index.js",

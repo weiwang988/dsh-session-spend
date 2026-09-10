@@ -22,7 +22,7 @@ interface FieldSpec {
 
 const MODEL_GROUPS: ReadonlyArray<{ readonly model: string; readonly fields: readonly FieldSpec[] }> = [
   {
-    model: 'deepseek-v4-flash',
+    model: 'deepseek-flash（V4.1-Flash；旧名 v4-flash 同价）',
     fields: [
       { key: 'flashCacheHit', label: '缓存命中' },
       { key: 'flashCacheMiss', label: '缓存未命中' },
@@ -30,7 +30,7 @@ const MODEL_GROUPS: ReadonlyArray<{ readonly model: string; readonly fields: rea
     ],
   },
   {
-    model: 'deepseek-v4-pro',
+    model: 'deepseek-v4-pro（官方 2026-09-14 12:00 起路由到 Flash 计费）',
     fields: [
       { key: 'proCacheHit', label: '缓存命中' },
       { key: 'proCacheMiss', label: '缓存未命中' },
@@ -38,7 +38,7 @@ const MODEL_GROUPS: ReadonlyArray<{ readonly model: string; readonly fields: rea
     ],
   },
   {
-    model: 'deepseek-v4-flash-vision-exp',
+    model: 'deepseek-v4-flash-vision-exp（旧名，按 Flash 价计费）',
     fields: [
       { key: 'visionCacheHit', label: '缓存命中' },
       { key: 'visionCacheMiss', label: '缓存未命中' },

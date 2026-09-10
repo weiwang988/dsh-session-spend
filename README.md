@@ -1,8 +1,8 @@
 # dsh-session-spend
 
-> 源码：[github.com/weiwang988/dsh-session-spend](https://github.com/weiwang988/dsh-session-spend) · 兼容 DSH **`0.1.5` 线**（`dsh-v0.1.5-alpha.1`，session format v3 词表；见[兼容性注记](#兼容性注记适配-dsh-015-alpha1-线)）
+> 源码：[github.com/weiwang988/dsh-session-spend](https://github.com/weiwang988/dsh-session-spend) · 兼容 DSH **`0.1.5` 线**（`dsh-v0.1.5-rc.1` = 当前 npm `latest`；session format v3 词表；见[兼容性注记](#兼容性注记适配-dsh-015-线)）
 
-DSH（DeepSeek Harness）Web 客户端插件：实时显示**当前会话花费**（¥），按官方**峰谷计价**逐笔选档，悬停查看节省分解。零 host 改动，纯客户端。**适配 DSH 0.1.5 线**（浏览器端契约 = `@deepseek-ai/dsh-client-*` 0.1.5-alpha.1 线，session format v3：`assistant/attempt` + 内嵌 stream、transient `assistant/live-chunk`、`llm/retry-started` 槽位语义）；host 半经 `sessionPersistence.open(id,'read') → handle.read()`（返回 `{eventState, events}`）直接读取**解码后的逻辑事件流**（格式迁移由 DSH 的 v0→v1→v2→v3 链完成），完整会话账本同价同规则。
+DSH（DeepSeek Harness）Web 客户端插件：实时显示**当前会话花费**（¥），按官方**峰谷计价**逐笔选档，悬停查看节省分解。零 host 改动，纯客户端。**适配 DSH 0.1.5 线**（浏览器端契约 = `@deepseek-ai/dsh-client-*` 0.1.5 线，session format v3：`assistant/attempt` + 内嵌 stream、transient `assistant/live-chunk`、`llm/retry-started` 槽位语义）；host 半经 `sessionPersistence.open(id,'read') → handle.read()`（返回 `{eventState, events}`）直接读取**解码后的逻辑事件流**（格式迁移由 DSH 的 v0→v1→v2→v3 链完成），完整会话账本同价同规则。
 
 ## 功能
 
@@ -15,17 +15,20 @@ DSH（DeepSeek Harness）Web 客户端插件：实时显示**当前会话花费*
 - **口径**：不含压缩总结、标题生成、子代理调用（后续版本提供开关）。
 - 展示位：`conversation.composer.dock`——与统计行同一横带（虚拟列表插槽，第三方可直接注册）。
 
-## 官方价目（内置默认 · 采集日 2026-08-28）
+## 官方价目（内置默认 · 采集日 2026-09-10）
 
-来源：[DeepSeek API 官方价目页](https://api-docs.deepseek.com/zh-cn/quick_start/pricing/)（用户截图核对）。默认值**随插件版本固化，官方调价后请更新 `src/core/price.ts` 与 `src/core/window.ts`**，或改用自定义价目（见下）。
+来源：[DeepSeek API 官方价目页](https://api-docs.deepseek.com/zh-cn/quick_start/pricing/)（2026-09-10 抓取核对，Flash 系列当时刚降价 ~60%）。默认值**随插件版本固化，官方调价后请更新 `src/core/price.ts` 与 `src/core/config.ts`**（窗口规则在 `src/core/window.ts`，未变），或改用自定义价目（见下）。
 
 单位 ¥/百万 token：
 
 | 模型 | 输入·缓存命中 峰/谷 | 输入·未命中 峰/谷 | 输出 峰/谷 |
 |---|---|---|---|
-| deepseek-v4-flash | 0.10 / 0.05 | 3.0 / 1.5 | 9.0 / 4.5 |
-| deepseek-v4-pro | 0.30 / 0.15 | 9.0 / 4.5 | 27.0 / 13.5 |
-| deepseek-v4-flash-vision-exp | 0.10 / 0.05 | 3.0 / 1.5 | 9.0 / 4.5 |
+| **deepseek-flash**（DeepSeek-V4.1-Flash，DSH 0.1.5 默认） | 0.04 / 0.02 | 2.0 / 1.0 | 8.0 / 4.0 |
+| deepseek-v4-pro（DeepSeek-V4-Pro-0813） | 0.30 / 0.15 | 9.0 / 4.5 | 27.0 / 13.5 |
+| deepseek-v4-flash（旧名，官方按 Flash 价计费） | 0.04 / 0.02 | 2.0 / 1.0 | 8.0 / 4.0 |
+| deepseek-v4-flash-vision-exp（旧名，同上） | 0.04 / 0.02 | 2.0 / 1.0 | 8.0 / 4.0 |
+
+官方口径注记：旧模型名 `deepseek-v4-flash` / `deepseek-v4-flash-vision-exp` 仍可调用，但对应模型已下线，**请求由 V4.1-Flash 提供服务并按 Flash 价格计费**；`deepseek-v4-pro` 计划下线，**北京时间 2026-09-14 12:00 之后其请求将全部路由到 V4.1 Flash 并按 Flash 价计费**——到那天把 `price.ts`/`config.ts` 的 pro 行改成 Flash 价（或直接用设置卡改）即可。
 
 **高峰时段 = 北京时间周一至周五 9:00–12:00、14:00–18:00**（区间起点含、终点不含；周末、午间、晚间、凌晨均为低谷），低谷价 = 高峰价 × 0.5。
 
@@ -95,16 +98,17 @@ conversation.composer.dock 条目 ← 读快照 session.views.get('cost')
 - 分页/重放：引擎 `replaceWindow` 重建全部节点（Context 从 matches 重放，append-only 状态确定），ViewBuilder `replace()` 全量重算——**不会重复计费**。
 - 实时：live-chunk usage 帧 `animation-frame` 节奏刷新（引擎结算时 transient 被退休、Context 以其实际 matches 重放）；与统计行节奏一致，无流式粗估。
 
-## 兼容性注记（适配 DSH 0.1.5-alpha.1 线）
+## 兼容性注记（适配 DSH 0.1.5 线）
 
-适配对象为 **format v3** 事件词表（`dsh-v0.1.5-alpha.1`，当前 master；v3 自 0.1.3-alpha.2 起生效），要点：
+适配对象为 **format v3** 事件词表（`dsh-v0.1.5-rc.1` = 当前 npm `latest`；v3 自 0.1.3-alpha.2 起生效），要点：
 
 - **持久化面**：`sessionPersistence.open(id, 'read')` → `handle.read(offset?, length?, options?)` 解析为 **`SessionHandleReadResult`（`{ eventState, events }`，0.1.5 线起）**——本包取 `.events`（注意 0.1.3 线旧形态是裸 `SessionEvent[]`，两者本包都兼容：旧线返回数组时 `.events` 为 undefined，请以 0.1.5 为准；0.1.2 线的 `readRaw/supportsRawArtifacts` 回退已移除——旧线请用 tag `v0.1.0` 的包）。
 - **词表变化**（相对 0.1.2 线）：持久化词表里再无 `assistant/chunk`，新增 **`assistant/attempt`**（失败的模型尝试也留账）；`assistant/message` 内嵌完整紧凑模型流 `stream`（`usage` 仍在）；客户端事件的 `SessionEventLike` 新增 **transient `assistant/live-chunk`**（`{attemptId, turn, step, chunk}`，结算后由 `settle-assistant` 退休替换）；`llm/retry` / `llm/retry-started` 为持久化重试记录。
 - **v3 增量**（相对 0.1.3-alpha.1，均与计费无关）：system prompt 上浮为 surface 节点（新事件 `system/message`，`request/header` 不再携带 `system`，但 `config.model` 不变）；`tool/code-dispatch*` → **`tool/ptc-dispatch*`**；新增 `feedback/message-put/delete`；`sourceEventSeqs` 从 wire 类型移除；token-meter 的 usage 提取重构为 `lastAssistantStreamChunk`（**语义不变**：`data.usage` 优先，否则 stream 最后一条 usage chunk）。
 - **计费口径**：usage = `data.usage` ?? 内嵌 stream 中**最后一条** usage chunk（plain `{type:'chunk'}` 记录；packed text/reasoning/tool-call 行不含 usage）；`llm/retry-started(turn,step)` 开**新槽位**——重试后的下载样本是**追加**不是替换（失败请求与重试请求都真实计费）。
 - **模型归属**：`assistant/attempt` 无 `model` 字段；归因最近先行的 `request/header`（`header.config.model`，DSH 只在配置变化时重新记录，因此"最近先行头"就是本次请求的模型）；取不到才标「价格未知」。
-- 浏览器端契约（`conversation.composer.dock`、NodeDefinition/ViewDefinition/register、locale、settingsScope）在 0.1.2-rc.1 → 0.1.5-alpha.1 之间**无破坏性变化**；事件词表与持久化返回值是唯一破坏点。本包 src 对事件做结构化访问（`CostEventLike`），因此在 0.1.2 发布类型的笔形下也可 typecheck；devDeps 在 0.1.5-alpha.1 发布 npm 后应升到该版本。
+- 浏览器端契约（`conversation.composer.dock`、NodeDefinition/ViewDefinition/register、locale、settingsScope）在 0.1.2-rc.1 → 0.1.5 线之间**无破坏性变化**；事件词表与持久化返回值是唯一破坏点。本包 src 对事件做结构化访问（`CostEventLike`），因此在 0.1.2 发布类型的笔形下也可 typecheck；devDeps 现在可升到 **0.1.5-rc.1**（npm 已发布该版本），或留待 0.1.5 正式版。
+- **模型变更**：DSH 0.1.5 把 DeepSeek 默认模型换成 `deepseek-flash`（DeepSeek-V4.1-Flash），旧名 `deepseek-v4-flash` / `-vision-exp` 由它代跑、pro 计划 2026-09-14 12:00 起路由到它——价目表已按官方 2026-09-10 新价同步（见上表）。
 
 > 注：0.1.5 线把聊天区的「统计条」换成了两个图标 pill + 点击打开的统计对话框——本包挂在 `conversation.composer.dock` 槽位，与统计条布局相互独立；如果官方新的统计对话框也提供同源数据入口，可作为后续对齐点。
 
@@ -123,6 +127,6 @@ RoxsLee/dsh-cost-plugin（峰谷按时间戳+余额）、Lzh3070/dsh-session-cos
 - **今日(DSH)**：host 端跨所有会话按北京时间今日边界汇总（同口径=主对话调用）；与官方控制台差异（标题/压缩等隐性调用）依旧体现在"今日"之外。
 - **「当前高峰/低谷」徽标按组件渲染时刻计算**——会话空闲时不会自动翻牌（下一次事件驱动重渲染时更新）。后续可改为定时刷新。
 - **不含压缩总结/标题生成/子代理**——这些调用在官方口径下同样计费；未来以配置开关引入（`includeCompaction` / `includeTitleGen` / `includeSubagents`）。
-- **默认价目为 2026-08-28 采集**——官方再次调价后需同步更新 `price.ts`（或提供自定义价目配置通道，待接入 DSH 配置系统）。
+- **默认价目为 2026-09-10 采集**（Flash 系列降价后；`deepseek-flash`/V4.1-Flash 为新默认，旧 flash 名按 Flash 价）——官方再次调价后需同步更新 `price.ts` / `config.ts`（2026-09-14 12:00 后 pro 将路由到 Flash 计费，届时改 pro 行）。
 - **余额/今日 = host 端能力**：需要 Vite 同源 `/_dsh-cost/summary` 路由（本包 host 半）与 DSH 配置的 `DEEPSEEK_API_KEY`；未配置/失败时余额段静默隐藏（其余功能不受影响）。
 - 本插件仅按模型单价估算，**不构成官方账单**；对账以 DeepSeek 控制台为准。
