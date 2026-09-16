@@ -1,5 +1,5 @@
 /**
- * Locale dictionaries for the session-cost readout + settings card.
+ * Locale dictionaries for the session-cost readout.
  * Product copy is Chinese.
  */
 
@@ -31,12 +31,6 @@ export const zh = {
   'readout.loading': ' · 数据加载中…',
   'readout.noData': '暂无数据',
   'readout.unknown': '价格未知：{models}',
-  'card.title': '会话成本设置',
-  'card.readonly': '只读（当前部署不可写）',
-  'card.valleyFactor': '低谷系数',
-  'card.valleyFactorHint': '（低谷价 = 高峰价 × 系数）',
-  'card.reset': '恢复默认',
-  'card.hint': '价格单位：¥/百万 token；修改即时生效于下一次结算。',
 } satisfies Record<string, string>
 
 export const en = {
@@ -56,10 +50,4 @@ export const en = {
   'readout.loading': ' · loading…',
   'readout.noData': 'no data',
   'readout.unknown': 'Unknown price: {models}',
-  'card.title': 'Session cost settings',
-  'card.readonly': 'Read-only (deployment not writable)',
-  'card.valleyFactor': 'Valley factor',
-  'card.valleyFactorHint': ' (valley = peak × factor)',
-  'card.reset': 'Reset to defaults',
-  'card.hint': 'Prices in ¥/1M tokens; changes apply at the next settlement.',
 } satisfies Record<SessionCostKey, string>

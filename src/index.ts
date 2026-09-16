@@ -6,10 +6,12 @@
  * nothing extra (the "full-window render cost" shortboard).
  *
  * `GET /_dsh-cost/summary?session=<id>` returns:
- *   - `session`  — the complete session ledger: priced with the same official
- *     price table + peak/valley window as the client (main-conversation
- *     records, per (turn, step, generation) last-wins, retry adds), folded
- *     from the persistence read handle's logical event stream;
+ *   - `session`  — the complete session ledger: priced with the built-in
+ *     official price table + peak/valley window (`core/price.ts` /
+ *     `core/window.ts` — the same constants the browser half folds with;
+ *     main-conversation records, per (turn, step, generation) last-wins,
+ *     retry adds), folded from the persistence read handle's logical event
+ *     stream;
  *   - `today`    — every session's main-conversation cost since Beijing
  *     midnight (the "今日(DSH)" figure);
  *   - `balance`  — official GET /user/balance via DSH credentials.
@@ -17,17 +19,10 @@
  */
 
 import type { Context } from '@deepseek-ai/cordis'
-import z from '@deepseek-ai/schemastery'
-import {
-  buildEffectivePriceTable, DEFAULT_SESSION_COST_CONFIG, type SessionCostConfig,
-} from './config.ts'
 import { computeCost, tokensToCny } from './core/cost.ts'
 import { foldCostItems, logItemsOf, type LogEventLike, type StepRecord } from './core/fold.ts'
-import { rateFor } from './core/price.ts'
+import { officialPriceTable, rateFor, type PriceTable } from './core/price.ts'
 import { classifyInstant, officialPeakWindow } from './core/window.ts'
-
-/** Settings namespace shared with the client card. */
-const NS = 'session-cost'
 
 const BALANCE_URL = 'https://api.deepseek.com/user/balance'
 const ROUTE = '/_dsh-cost/summary'
@@ -99,49 +94,13 @@ function todayStartMs(): number {
 }
 
 /** One priced record at its own billing instant (cache hit/miss/output rates). */
-function priceRecord(record: StepRecord, table: ReturnType<typeof buildEffectivePriceTable>): number | undefined {
+function priceRecord(record: StepRecord, table: PriceTable): number | undefined {
   const kind = classifyInstant(record.time, officialPeakWindow)
   const rate = rateFor(record.model, kind, table)
   return rate === undefined ? undefined : tokensToCny(record.usage, rate)
 }
 
-/** Loose schemastery schema over the flat config (mirror-shape at build time). */
-const ConfigSchema = z.object({
-  flashCacheHit: z.number(), flashCacheMiss: z.number(), flashOutput: z.number(),
-  proCacheHit: z.number(), proCacheMiss: z.number(), proOutput: z.number(),
-  visionCacheHit: z.number(), visionCacheMiss: z.number(), visionOutput: z.number(),
-  valleyFactor: z.number(),
-})
-
-interface SettingsSectionHook {
-  setSource(current: () => Readonly<SessionCostConfig>): void
-  /** Required by the contract; pricing re-reads the source at request time. */
-  onChange(): void
-}
-
-interface SettingsLike {
-  installSection(
-    ctx: Context,
-    namespace: string,
-    schema: unknown,
-    entry: Readonly<SessionCostConfig>,
-    hooks: SettingsSectionHook,
-  ): void
-}
-
 export function apply(ctx: Context): void {
-  let pricingConfig: Readonly<SessionCostConfig> = DEFAULT_SESSION_COST_CONFIG
-
-  // Editable price table through the settings page card (optional: works
-  // with no settings provider mounted — the default table stays).
-  const settings = ctx.get('settings') as SettingsLike | undefined
-  if (settings !== undefined && typeof settings.installSection === 'function') {
-    settings.installSection(ctx, NS, ConfigSchema, DEFAULT_SESSION_COST_CONFIG, {
-      setSource: current => { pricingConfig = current() },
-      onChange: () => {},
-    })
-  }
-
   ctx.effect(() => ctx.webServer.register({
     kind: 'exact',
     path: ROUTE,
@@ -150,7 +109,7 @@ export function apply(ctx: Context): void {
         res.writeHead(200, { 'content-type': 'application/json' })
         res.end(JSON.stringify(payload))
       }
-      const table = buildEffectivePriceTable(pricingConfig)
+      const table = officialPriceTable
       const persistence = ctx.get('sessionPersistence') as PersistenceSeam | undefined
       const sessionId = new URL(req.url ?? `http://x${ROUTE}`, 'http://x').searchParams.get('session')
       const dayKey = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Shanghai' })
@@ -242,7 +201,7 @@ export function apply(ctx: Context): void {
         balance: balancePayload,
         window: {
           current: classifyInstant(Date.now(), officialPeakWindow),
-          valleyFactor: pricingConfig.valleyFactor,
+          valleyFactor: officialPeakWindow.valleyFactor,
         },
       })
     },

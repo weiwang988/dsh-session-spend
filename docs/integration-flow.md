@@ -38,10 +38,9 @@ cd D:\Projects\dsh\dsh-session-spend
 #    尚未发布 npm；本包对事件做结构化访问（CostEventLike），先发布与后发布版本的
 #    笔形都可 typecheck。0.1.5 上线 npm 后把 devDeps 升到 0.1.5 线。
 #    含契约 pull 包 dsh-api-session-controller、dsh-client-ui-session、
-#    dsh-client-ui-settings、dsh-client-ui-settings-plugins、dsh-client-ui-renderer、
-#    dsh-client-store——它们声明浏览器端 Context/slot/locale 的 merge，真实类型
-#    检查必须安装；host 半对 sessionPersistence/webServer/credentials 采用结构
-#    duck typing，devDeps 无需任何 host 包）
+#    dsh-client-ui-renderer、dsh-client-store——它们声明浏览器端 Context/slot/locale
+#    的 merge，真实类型检查必须安装；host 半对 sessionPersistence/webServer/
+#    credentials 采用结构 duck typing，devDeps 无需任何 host 包）
 pnpm install
 
 # 2. 构建（tsdown 产出 lib/client.js、lib/index.js、lib/types/）

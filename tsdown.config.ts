@@ -30,7 +30,7 @@ export default defineConfig([
     outDir: 'lib',
     outExtensions: () => ({ js: '.js', dts: '.d.ts' }),
     dts: { entry: 'src/index.ts' },
-    external: ['@deepseek-ai/cordis', '@deepseek-ai/schemastery'],
+    external: ['@deepseek-ai/cordis'],
   },
   // Browser half: closure-factory artifact, exactly the official format.
   {

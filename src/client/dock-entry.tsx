@@ -8,18 +8,18 @@
  * summary route `/_dsh-cost/summary` (complete session ledger + daily +
  * balance) — the browser never pages session history, so the client window
  * is never expanded and re-entering a session costs nothing extra. Fetched
- * on mount and on the turn edge (the local 'cost' view's `lastTurn`, folded
- * from the tiny initial tail window only). Failures degrade silently to the
- * local tail fold.
+ * on mount and whenever the local fold reaches a new record count (debounced),
+ * folded from the tiny initial tail window only. Failures degrade silently to
+ * the local tail fold.
  */
 
-import { memo, useEffect, useState } from 'react'
+import { memo, useEffect, useRef, useState } from 'react'
 import { Tooltip } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import { formatCny } from '../core/cost.ts'
 import { classifyInstant, officialPeakWindow } from '../core/window.ts'
 import { NS } from './locales.ts'
-import { cachedSummary, fetchSummary, type HostSummary } from './summary.ts'
+import { cachedSummary, fetchSummary, summaryDiagnostics, type HostSummary } from './summary.ts'
 import type { CostReadout } from './view-definition.ts'
 
 export type SessionCostDockEntryProps =
@@ -119,21 +119,71 @@ function balanceText(summary: HostSummary, t: SessionCostDockEntryProps['t']): s
   return t('readout.balance', { amount: amounts })
 }
 
+/** `?costDebug=1` (or `#costDebug`) turns the silent failure path into text. */
+function costDebugEnabled(): boolean {
+  try {
+    const location = (globalThis as { location?: { search?: string, hash?: string } }).location
+    const text = `${location?.search ?? ''}${location?.hash ?? ''}`
+    return text.includes('costDebug')
+  } catch {
+    return false
+  }
+}
+
+/** Compact diagnostic line for the debug panel (no locale keys: diagnostic only). */
+function diagnosticStatus(sessionId: string, local: CostReadout | undefined, hasSummary: boolean): string {
+  const probe = summaryDiagnostics()
+  const where = probe === undefined
+    ? 'no fetch yet'
+    : `last ${probe.outcome}${probe.status === undefined ? '' : ` ${probe.status}`}`
+      + `${probe.failures > 1 ? ` ×${probe.failures}` : ''}`
+      + `${probe.detail === undefined ? '' : ` (${probe.detail})`}`
+  return `session-cost · ${sessionId.slice(0, 22)}… · records ${local?.recordCount ?? 'none'}`
+    + ` · summary ${hasSummary ? 'ok' : 'none'} · ${where}`
+}
+/**
+ * Trailing-debounce window for the host summary refetch. One turn easily
+ * carries dozens of steps (a tool loop) and every settlement adds a record, so
+ * the debounce collapses that burst into a single full-log read.
+ */
+const SUMMARY_REFRESH_DEBOUNCE_MS = 500
+
+/**
+ * Idle debounce for a new dependency value, or `undefined` when nothing priced
+ * changed. `recordCount` advances per settlement, whereas `lastTurn` only moves
+ * once per turn — keyed on the turn alone a multi-step turn would freeze the
+ * readout at its first step until the next turn (or a page reload) refreshed it.
+ * A session switch always refreshes; a repeat or stale count holds.
+ */
+function shouldRefresh(previousCount: number | undefined, nextCount: number | undefined): number | undefined {
+  if (nextCount === undefined) return undefined
+  if (previousCount !== undefined && nextCount <= previousCount) return undefined
+  return SUMMARY_REFRESH_DEBOUNCE_MS
+}
+
 export const SessionCostDockEntry = memo(function SessionCostDockEntry({
   sessionId, useConversation, t,
 }: SessionCostDockEntryProps) {
-  // Local tail fold: the turn-edge signal (and the graceful fallback while
-  // the host summary is in flight). Never pages history.
+  // Local tail fold: the refresh signal (and the graceful fallback while the
+  // host summary is in flight). Never pages history.
   const local = useConversation(conversation => conversation).views.get('cost')
-
   const [summary, setSummary] = useState<HostSummary | null>(null)
+  const lastCount = useRef<number | undefined>(undefined)
+  const lastSession = useRef<string | undefined>(undefined)
   useEffect(() => {
+    const sessionChanged = lastSession.current !== sessionId
+    const delayMs = shouldRefresh(sessionChanged ? undefined : lastCount.current, local?.recordCount)
+    if (delayMs === undefined && !sessionChanged) return
+    lastSession.current = sessionId
+    lastCount.current = local?.recordCount
     let alive = true
-    void fetchSummary(sessionId).then(payload => {
-      if (alive && payload !== undefined) setSummary(payload)
-    })
-    return () => { alive = false }
-  }, [sessionId, local?.lastTurn])
+    const timer = setTimeout(() => {
+      void fetchSummary(sessionId).then(payload => {
+        if (alive && payload !== undefined) setSummary(payload)
+      })
+    }, delayMs ?? 0)
+    return () => { alive = false; clearTimeout(timer) }
+  }, [sessionId, local?.recordCount])
 
   // ⑧ badge keeps ticking so an idle session flips 高峰/低谷 at the window
   // boundary (host-provided current window wins when available).
@@ -149,7 +199,15 @@ export const SessionCostDockEntry = memo(function SessionCostDockEntry({
   // Prefer the host ledger; fall back to the local tail fold while loading.
   const totalCny = summary?.session?.totalCny ?? local?.totalCny
   if (totalCny === undefined || (summary === null && (local === undefined || local.recordCount === 0))) {
-    return null
+    // Normally invisible (the shipped gating). With ?costDebug=1 the entry
+    // instead reports why it has nothing to show.
+    return costDebugEnabled()
+      ? (
+        <span style={{ opacity: 0.7, fontSize: '0.85em' }}>
+          {diagnosticStatus(sessionId, local, summary !== null)}
+        </span>
+      )
+      : null
   }
   const fallback: HostSummary = { ok: true, session: local === undefined ? undefined : {
     totalCny: local.totalCny,
