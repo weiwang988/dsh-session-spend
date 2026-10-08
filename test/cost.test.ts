@@ -42,13 +42,40 @@ test('per-record cost math: cache read at hit rate, write at miss rate', () => {
   assert.equal(cost, 2.0 + 0.02)
 })
 
-test('legacy flash names are billed at V4.1-Flash rates (official footnote)', () => {
-  const legacy = tokensToCny({ inputTokens: 1_000_000, outputTokens: 0 }, officialPriceTable['deepseek-v4-flash'].peak)
-  const vision = tokensToCny({ inputTokens: 1_000_000, outputTokens: 0 }, officialPriceTable['deepseek-v4-flash-vision-exp'].peak)
-  const current = tokensToCny({ inputTokens: 1_000_000, outputTokens: 0 }, officialPriceTable['deepseek-flash'].peak)
-  assert.equal(legacy, 2.0)
-  assert.equal(vision, 2.0)
+test('retired flash ids stay priced: recorded sessions still carry those model ids', () => {
+  // DSH 0.2.x removed both ids from the llm-deepseek catalog, but recorded
+  // sessions keep them as the routed model, so they must stay pinnable to the
+  // Flash rate — and pinned by IDENTITY, so a future Flash price change cannot
+  // drift the retired rows apart from the current one.
+  const legacy = officialPriceTable['deepseek-v4-flash']
+  const vision = officialPriceTable['deepseek-v4-flash-vision-exp']
+  const current = officialPriceTable['deepseek-flash']
   assert.equal(legacy, current)
+  assert.equal(vision, current)
+  const oneMillion = { inputTokens: 1_000_000, outputTokens: 0 }
+  assert.equal(tokensToCny(oneMillion, legacy.peak), 2.0)
+  assert.equal(tokensToCny(oneMillion, vision.peak), 2.0)
+  assert.equal(tokensToCny(oneMillion, current.peak), 2.0)
+})
+
+test('re-pricing a recorded vision session matches the Flash ledger', () => {
+  // The 2026-09-16 session carried 192 deepseek-v4-flash-vision-exp records;
+  // priced at Flash rates they must land in the money figures, not in the
+  // "unknown price" bucket.
+  const summary = computeCost(records([
+    {
+      turn: 0, step: 0, time: at(28, 10), model: 'deepseek-v4-flash-vision-exp',
+      usage: { inputTokens: 1_000_000, outputTokens: 500_000 },
+    },
+    {
+      turn: 0, step: 1, time: at(28, 10), model: 'deepseek-flash',
+      usage: { inputTokens: 1_000_000, outputTokens: 500_000 },
+    },
+  ]), officialPriceTable)
+  assert.deepEqual(summary.unknownModelIds, [])
+  assert.equal(summary.recordCount, 2)
+  assert.ok(Math.abs(summary.totalCny - 2 * (2.0 + 0.5 * 8.0)) < 1e-9)
+  assert.equal(summary.byModel.length, 2)
 })
 
 test('regression: user real session numbers (billed input 63.3K, hit 77%, output 7.2K)', () => {

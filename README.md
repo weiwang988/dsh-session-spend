@@ -1,11 +1,12 @@
 # dsh-session-spend
 
-> 源码：[github.com/weiwang988/dsh-session-spend](https://github.com/weiwang988/dsh-session-spend) · 兼容 DSH **`0.1.5` 线**（`dsh-v0.1.5-rc.1` = 当前 npm `latest`；session format v3 词表；见[兼容性注记](#兼容性注记适配-dsh-015-线)）
+> 源码：[github.com/weiwang988/dsh-session-spend](https://github.com/weiwang988/dsh-session-spend) · 兼容 DSH **`0.2.x` 线**（对照 `dsh-v0.2.1-alpha.1` 核实；session format v4 词表；devDeps 已升到 `0.2.1-alpha.1`，见[兼容性注记](#兼容性注记适配-dsh-015-线)）
 
-DSH（DeepSeek Harness）Web 客户端插件：实时显示**当前会话花费**（¥），按官方**峰谷计价**逐笔选档，悬停查看节省分解。零 host 改动，纯客户端。**适配 DSH 0.1.5 线**（浏览器端契约 = `@deepseek-ai/dsh-client-*` 0.1.5 线，session format v3：`assistant/attempt` + 内嵌 stream、transient `assistant/live-chunk`、`llm/retry-started` 槽位语义）；host 半经 `sessionPersistence.open(id,'read') → handle.read()`（返回 `{eventState, events}`）直接读取**解码后的逻辑事件流**（格式迁移由 DSH 的 v0→v1→v2→v3 链完成），完整会话账本同价同规则。
+DSH（DeepSeek Harness）Web 客户端插件：实时显示**当前会话花费**（¥），按官方**峰谷计价**逐笔选档，悬停查看节省分解。零 host 改动，纯客户端。**适配 DSH 0.2.x**（浏览器端契约 = `@deepseek-ai/dsh-client-*` 0.2.1-alpha.1，session format v4：`assistant/attempt` + 内嵌 stream、`assistant/message` 携带 `usage`、transient `assistant/live-chunk`、`llm/retry-started` 槽位语义）；host 半经 `sessionPersistence.open(id,'read') → handle.read()`（返回 `{eventState, events}`）直接读取**解码后的逻辑事件流**（v3 旧文件由 DSH 的 v3→v4 迁移链转换，assistant stream/usage 不在转换范围内、原样保留），完整会话账本同价同规则。
 
 ## 版本变更
 
+- **0.2.4**：**适配 DSH 0.2.x 并修价目表**。① 价目表的 Flash 三行（`deepseek-flash`、`deepseek-v4-flash`、`deepseek-v4-flash-vision-exp`）改为**共享同一个 `flashRates` 常量对象**——DSH 0.2.x 已把两个旧名从 `llm-deepseek` 目录移除（`feat(llm): remove the V4 Flash and V4 Flash Vision Exp defaults`），它们只用于**给已录制会话计价**（你 9-16 那个会话里就有 192 笔 `-vision-exp`），共享引用可确保未来改 Flash 价时三行不会漂移。② devDeps 从 `0.1.2-rc.1` 升到 **`0.2.1-alpha.1`**，peer 改为 `@deepseek-ai/cordis: ~4.0.5-alpha.1`（0.2.1 契约包声明的 peer）。③ 逐一核对 0.2.x 的契约，结论：**无破坏性变更**——事件词表、`sessionPersistence` 签名、`conversation.composer.dock` 槽位、NodeDefinition/ViewDefinition/SnapshotMap 均未变；0.2.x 新增的插件兼容性闸门只检查名称以 `@deepseek-ai/dsh-` 开头的 peer，本包不命中故不受拦。
 - **0.2.3**：**修复「对话结束后读数不更新、需手动刷新页面」**——dock 条目的 host 摘要拉取原先以 `lastTurn`（回合级）为触发键，一轮内多步（工具循环）的每次结算都不会触发重新拉取，读数会定格在该轮第一步的金额，直到下一次换轮或手动刷新页面。现改为以 **`recordCount`（每条新计价记录都会推进）** 为触发键，并加 500 ms 尾部防抖把一轮内的密集事件合并为一次全量日志折叠。**同时移除会话成本设置入口**——不再注册 `settings.plugin.item` 设置卡，host 半也不再安装 `session-cost` 配置段（`installSection` / schemastery schema 一并删除，`schemastery` 运行时依赖移除）。价目与低谷系数改为**内置常量**：host 与浏览器两半统一使用 `src/core/price.ts` 的 `officialPriceTable`、`src/core/window.ts` 的 `officialPeakWindow`（低谷系数固定 0.5，与官方「低谷价 = 高峰价 × 1/2」一致）。**升级影响**：DSH 配置文档里遗留的 `session-cost` 段不再被读取（无害残留，可手动删除）；已固化的默认价目数值与移除前完全一致。
 
 ## 功能
@@ -26,12 +27,12 @@ DSH（DeepSeek Harness）Web 客户端插件：实时显示**当前会话花费*
 
 | 模型 | 输入·缓存命中 峰/谷 | 输入·未命中 峰/谷 | 输出 峰/谷 |
 |---|---|---|---|
-| **deepseek-flash**（DeepSeek-V4.1-Flash，DSH 0.1.5 默认） | 0.04 / 0.02 | 2.0 / 1.0 | 8.0 / 4.0 |
-| deepseek-v4-pro（DeepSeek-V4-Pro-0813） | 0.30 / 0.15 | 9.0 / 4.5 | 27.0 / 13.5 |
-| deepseek-v4-flash（旧名，官方按 Flash 价计费） | 0.04 / 0.02 | 2.0 / 1.0 | 8.0 / 4.0 |
+| **deepseek-flash**（DeepSeek-V4.1-Flash，DSH 默认模型） | 0.04 / 0.02 | 2.0 / 1.0 | 8.0 / 4.0 |
+| deepseek-v4-pro（DeepSeek-V4-Pro；计划路由到 Flash） | 0.30 / 0.15 | 9.0 / 4.5 | 27.0 / 13.5 |
+| deepseek-v4-flash（旧名，仅用于给已录制会话计价） | 0.04 / 0.02 | 2.0 / 1.0 | 8.0 / 4.0 |
 | deepseek-v4-flash-vision-exp（旧名，同上） | 0.04 / 0.02 | 2.0 / 1.0 | 8.0 / 4.0 |
 
-官方口径注记：旧模型名 `deepseek-v4-flash` / `deepseek-v4-flash-vision-exp` 仍可调用，但对应模型已下线，**请求由 V4.1-Flash 提供服务并按 Flash 价格计费**；`deepseek-v4-pro` 计划下线，**北京时间 2026-09-14 12:00 之后其请求将全部路由到 V4.1 Flash 并按 Flash 价计费**——到那天把 `src/core/price.ts` 的 pro 行改成 Flash 价即可（host 与浏览器两半共用这一张表）。
+官方口径注记：两个旧 flash 名**已从 DSH 0.2.x 的 `llm-deepseek` 默认目录中移除**，新请求无法再选到它们；本表保留这两行只为**给历史会话计价**（对应请求当时由 V4.1-Flash 承接、按 Flash 价计费），且三行共享同一常量对象以防价格漂移。`deepseek-v4-pro` 计划下线，**北京时间 2026-09-14 12:00 之后其请求将全部路由到 V4.1 Flash 并按 Flash 价计费**——到那天把 `src/core/price.ts` 的 pro 行改成 `flashRates` 即可（host 与浏览器两半共用这一张表）。
 
 **高峰时段 = 北京时间周一至周五 9:00–12:00、14:00–18:00**（区间起点含、终点不含；周末、午间、晚间、凌晨均为低谷），低谷价 = 高峰价 × 0.5。
 
@@ -101,19 +102,19 @@ conversation.composer.dock 条目 ← 读快照 session.views.get('cost')
 - 分页/重放：引擎 `replaceWindow` 重建全部节点（Context 从 matches 重放，append-only 状态确定），ViewBuilder `replace()` 全量重算——**不会重复计费**。
 - 实时：live-chunk usage 帧 `animation-frame` 节奏刷新（引擎结算时 transient 被退休、Context 以其实际 matches 重放）；与统计行节奏一致，无流式粗估。
 
-## 兼容性注记（适配 DSH 0.1.5 线）
+## 兼容性注记（适配 DSH 0.2.x 线）
 
-适配对象为 **format v3** 事件词表（`dsh-v0.1.5-rc.1` = 当前 npm `latest`；v3 自 0.1.3-alpha.2 起生效），要点：
+适配对象为 **format v4** 事件词表（对照 `dsh-v0.2.1-alpha.1` 逐接口核实），要点：
 
-- **持久化面**：`sessionPersistence.open(id, 'read')` → `handle.read(offset?, length?, options?)` 解析为 **`SessionHandleReadResult`（`{ eventState, events }`，0.1.5 线起）**——本包取 `.events`（注意 0.1.3 线旧形态是裸 `SessionEvent[]`，两者本包都兼容：旧线返回数组时 `.events` 为 undefined，请以 0.1.5 为准；0.1.2 线的 `readRaw/supportsRawArtifacts` 回退已移除——旧线请用 tag `v0.1.0` 的包）。
-- **词表变化**（相对 0.1.2 线）：持久化词表里再无 `assistant/chunk`，新增 **`assistant/attempt`**（失败的模型尝试也留账）；`assistant/message` 内嵌完整紧凑模型流 `stream`（`usage` 仍在）；客户端事件的 `SessionEventLike` 新增 **transient `assistant/live-chunk`**（`{attemptId, turn, step, chunk}`，结算后由 `settle-assistant` 退休替换）；`llm/retry` / `llm/retry-started` 为持久化重试记录。
-- **v3 增量**（相对 0.1.3-alpha.1，均与计费无关）：system prompt 上浮为 surface 节点（新事件 `system/message`，`request/header` 不再携带 `system`，但 `config.model` 不变）；`tool/code-dispatch*` → **`tool/ptc-dispatch*`**；新增 `feedback/message-put/delete`；`sourceEventSeqs` 从 wire 类型移除；token-meter 的 usage 提取重构为 `lastAssistantStreamChunk`（**语义不变**：`data.usage` 优先，否则 stream 最后一条 usage chunk）。
-- **计费口径**：usage = `data.usage` ?? 内嵌 stream 中**最后一条** usage chunk（plain `{type:'chunk'}` 记录；packed text/reasoning/tool-call 行不含 usage）；`llm/retry-started(turn,step)` 开**新槽位**——重试后的下载样本是**追加**不是替换（失败请求与重试请求都真实计费）。
-- **模型归属**：`assistant/attempt` 无 `model` 字段；归因最近先行的 `request/header`（`header.config.model`，DSH 只在配置变化时重新记录，因此"最近先行头"就是本次请求的模型）；取不到才标「价格未知」。
-- 浏览器端契约（`conversation.composer.dock`、NodeDefinition/ViewDefinition/register、locale）在 0.1.2-rc.1 → 0.1.5 线之间**无破坏性变化**；事件词表与持久化返回值是唯一破坏点。本包 src 对事件做结构化访问（`CostEventLike`），因此在 0.1.2 发布类型的笔形下也可 typecheck；devDeps 现在可升到 **0.1.5-rc.1**（npm 已发布该版本），或留待 0.1.5 正式版。
-- **模型变更**：DSH 0.1.5 把 DeepSeek 默认模型换成 `deepseek-flash`（DeepSeek-V4.1-Flash），旧名 `deepseek-v4-flash` / `-vision-exp` 由它代跑、pro 计划 2026-09-14 12:00 起路由到它——价目表已按官方 2026-09-10 新价同步（见上表）。
+- **持久化面**：`sessionPersistence.open(id, 'read')` → `handle.read(offset?, length?, options?)` 解析为 **`SessionHandleReadResult`（`{ eventState, events }`）**——本包取 `.events`；v3 及更早的旧文件由 DSH 的迁移链（v0→v1→v2→v3→v4）自动转换，未知词表 fail-closed。
+- **v4 对计费的影响：无**。v3→v4 的转换只做四件事——工具结果上提、消息来源重命名（`plugin` 包装器 → `kind`）、补齐有证据的中断回合、追加缺失的父目录事实；其规范明确 **assistant 的 replay state 与 streams、工具参数/内容元数据保持原样**。本包折叠所依赖的 `step/start`（`{turn, step}`）、`assistant/message`（`{turn, step, message, stream, usage?}`）、`assistant/attempt`（`{turn, step, stream}`）、`llm/retry-started`、`request/header`（`header.config.model`）在 0.2.1 的 `SessionEventMap` 中原样存在。
+- **词表来源**：`message.source.kind: 'model'` 属"直接 source"，v4 的来源重命名只作用于 `plugin` 包装器，故 `message.source.model` 的模型归属仍然有效（`assistant/attempt` 仍无自带 model，按最近先行 `request/header` 归因）。
+- **计费口径**：usage = `data.usage` ?? 内嵌 stream 中**最后一条** usage chunk；`llm/retry-started(turn,step)` 开**新槽位**——重试后的样本是**追加**不是替换（失败请求与重试请求都真实计费）。token-meter 在 0.2.x 仍是同一语义（`usageOf()`：`assistant/message` 直取 `data.usage`，否则 `lastAssistantStreamChunk(..., 'usage')`）。
+- **浏览器端契约**：`conversation.composer.dock` 仍是 `{ kind: 'list'; scope: 'session' }`；`AssistantLiveChunkEvent` 仍是 `{seq, time, data:{attemptId, turn, step, chunk}}`；`ConversationNodeDefinition`（`match/start/update/publication/buildViewNode`）、`ConversationViewDefinition`（`target/create`）、`ConversationViewSnapshotMap` 均未变。**0.1.2-rc.1 → 0.2.1-alpha.1 之间无破坏性变更。**
+- **插件兼容性闸门（0.2.x 新增）**：`evaluatePluginCompatibility()` 只检查名称等于 `@deepseek-ai/dsh` 或以 `@deepseek-ai/dsh-` 开头的 peer，不满足即拒绝安装与激活。本包 peer 只有 `@deepseek-ai/cordis`，**不命中该检查**；但也意味着运行时 API 漂移需要自行盯守（升 devDeps 后由 `pnpm run typecheck` 把关）。
+- **依赖版本**：devDeps 与 peer 已对齐 0.2.1-alpha.1 的契约包（`@deepseek-ai/dsh-client-*@0.2.1-alpha.1`，peer `@deepseek-ai/cordis: ~4.0.5-alpha.1`，后者由 0.2.1 契约包声明）。`pnpm-workspace.yaml` 的 `minimumReleaseAgeExclude` 同步收窄到本包实际使用的这些版本。
 
-> 注：0.1.5 线把聊天区的「统计条」换成了两个图标 pill + 点击打开的统计对话框——本包挂在 `conversation.composer.dock` 槽位，与统计条布局相互独立；如果官方新的统计对话框也提供同源数据入口，可作为后续对齐点。
+> 注：0.2.x 把聊天区统计入口改成 pill + 统计对话框，本包仍挂在 `conversation.composer.dock`，两者布局相互独立。`ConversationViewDefinition` 现在有可选的 `activity` 钩子（目标自报"我这块算不算可见活动"），本包目前仍按金额是否为零 gate，可作后续对齐点。
 
 ## 与现有同类插件的差异
 

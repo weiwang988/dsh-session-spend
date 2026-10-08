@@ -13,16 +13,22 @@
  * | output     peak   | 8.0            | 27.0            | billed as flash    |
  * | output     valley | 4.0            | 13.5            | billed as flash    |
  *
- * `deepseek-flash` serves DeepSeek-V4.1-Flash and is the DSH 0.1.5 default
- * (llm-deepseek catalog). The retired names `deepseek-v4-flash` and
- * `deepseek-v4-flash-vision-exp` stay callable, but the provider serves them
- * with V4.1-Flash at Flash prices (official footnote), so they map to the same
- * rates here. `deepseek-v4-pro` keeps its own rate until the provider routes
- * it to V4.1 Flash (announced for 2026-09-14 12:00 Beijing) — after that its
- * requests are billed at Flash prices too, so move the pro row then.
+ * `deepseek-flash` serves DeepSeek-V4.1-Flash and is the DSH default model. The
+ * retired names `deepseek-v4-flash` and `deepseek-v4-flash-vision-exp` are kept
+ * as rows because RECORDED sessions still carry those ids as their routed
+ * model. DSH 0.2.x removed both from the `llm-deepseek` catalog
+ * (`feat(llm): remove the V4 Flash and V4 Flash Vision Exp defaults`), so a
+ * current request cannot select them again; their recorded traffic was billed
+ * by the provider as V4.1-Flash, which is the rate they keep here. Both rows
+ * hold the SAME object reference as `deepseek-flash`, so a future price change
+ * cannot drift them apart.
+ *
+ * `deepseek-v4-pro` keeps its own rate until the provider routes it to
+ * V4.1 Flash (announced for 2026-09-14 12:00 Beijing) — after that its requests
+ * are billed at Flash prices too, so move the pro row then.
  *
  * Valley = peak × 0.5 per the official rule ("空闲时段价格为高峰时段价格的一半").
- * Prices change; everything here is overridable through plugin configuration.
+ * Prices change; this table is a built-in constant (edit it and rebuild).
  */
 
 import type { WindowKind } from './window.ts'
@@ -43,26 +49,27 @@ export type ModelPrices = Record<WindowKind, ModelRate>
 /** Full configurable price table: model id → peak/valley rates. */
 export type PriceTable = Readonly<Record<string, ModelPrices>>
 
-/** Official defaults (collected 2026-09-10). */
+/**
+ * V4.1-Flash rates (peak/valley). The retired ids below share this exact
+ * object: one edit moves every row that the provider bills as Flash.
+ */
+const flashRates: ModelPrices = {
+  peak: { cacheHit: 0.04, cacheMiss: 2.0, output: 8.0 },
+  valley: { cacheHit: 0.02, cacheMiss: 1.0, output: 4.0 },
+}
+
+/** Official defaults (collected 2026-09-10; DSH 0.2.x catalog: flash + pro). */
 export const officialPriceTable: PriceTable = {
-  // DSH 0.1.5 default route: DeepSeek-V4.1-Flash.
-  'deepseek-flash': {
-    peak: { cacheHit: 0.04, cacheMiss: 2.0, output: 8.0 },
-    valley: { cacheHit: 0.02, cacheMiss: 1.0, output: 4.0 },
-  },
+  // DSH default model: DeepSeek-V4.1-Flash.
+  'deepseek-flash': flashRates,
   'deepseek-v4-pro': {
     peak: { cacheHit: 0.30, cacheMiss: 9.0, output: 27.0 },
     valley: { cacheHit: 0.15, cacheMiss: 4.5, output: 13.5 },
   },
-  // Retired names, still callable: served by V4.1-Flash at Flash prices.
-  'deepseek-v4-flash': {
-    peak: { cacheHit: 0.04, cacheMiss: 2.0, output: 8.0 },
-    valley: { cacheHit: 0.02, cacheMiss: 1.0, output: 4.0 },
-  },
-  'deepseek-v4-flash-vision-exp': {
-    peak: { cacheHit: 0.04, cacheMiss: 2.0, output: 8.0 },
-    valley: { cacheHit: 0.02, cacheMiss: 1.0, output: 4.0 },
-  },
+  // Retired ids, kept for RECORDED sessions only; DSH 0.2.x no longer lists
+  // them, and their historical traffic was billed as V4.1-Flash.
+  'deepseek-v4-flash': flashRates,
+  'deepseek-v4-flash-vision-exp': flashRates,
 }
 
 /**
